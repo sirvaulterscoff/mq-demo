@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:orcl="http://www.springframework.org/schema/data/orcl" xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+       xmlns:jms="http://www.springframework.org/schema/jms" xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:oxm="http://www.springframework.org/schema/oxm"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/data/orcl http://www.springframework.org/schema/data/orcl/spring-data-orcl-1.0.xsd http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd">
+
+	<jpa:repositories base-package="com.otr.mq.jpa"/>
+	<context:component-scan base-package="com.otr.mq.service"/>
+	<orcl:aq-jms-connection-factory id="connectionFactory"
+	                                use-local-data-source-transaction="true"
+	                                native-jdbc-extractor="dbcpNativeJdbcExtractor"
+	                                data-source="dataSource"/>
+
+	<jms:listener-container connection-factory="connectionFactory"
+	                        transaction-manager="transactionManager" message-converter="oxmMessageConverter">
+		<jms:listener destination="jms_text_queue"
+		              ref="jmsListenerService"
+		              method="handleMessage"/>
+	</jms:listener-container>
+
+	<bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+		<property name="sessionTransacted" value="true"/>
+		<property name="connectionFactory" ref="connectionFactory"/>
+		<property name="defaultDestinationName" value="jms_text_queue"/>
+		<property name="messageConverter" ref="oxmMessageConverter"/>
+	</bean>
+
+
+	<bean id="dbcpNativeJdbcExtractor"
+	      class="org.springframework.jdbc.support.nativejdbc.CommonsDbcpNativeJdbcExtractor"/>
+
+	<bean id="transactionManager"
+	      class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+
+	<bean id="oxmMessageConverter" class="org.springframework.jms.support.converter.MarshallingMessageConverter">
+		<property name="marshaller" ref="marshaller" />
+		<property name="unmarshaller" ref="marshaller" />
+		<property name="targetType" value="TEXT"/>
+	</bean>
+
+	<oxm:jaxb2-marshaller id="marshaller">
+		<oxm:class-to-be-bound name="com.otr.mq.jpa.TestPacket" />
+	</oxm:jaxb2-marshaller>
+</beans>
